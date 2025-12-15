@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>🧩 Góc Trò Chơi Mảnh Ghép</title>
+<style>
+  body{font-family:Arial, sans-serif;background:#f6fbff;margin:0;padding:20px;text-align:center;}
+  h2{color:#0b63d4}
+  #controls{margin:15px 0;}
+  select, button{padding:6px 10px;border-radius:6px;}
+  .puzzle-container{display:grid;gap:2px;margin:20px auto;border:2px solid #ccc;background:#eee;}
+  .piece{cursor:grab;background-size:cover;}
+  .placeholder{border:1px dashed #aaa;position:relative;}
+  #preview{margin:20px auto;max-width:640px;}
+  #musicControl{margin-left:10px;}
+</style>
+</head>
+<body>
+  <h2>🧩 Góc Trò Chơi Mảnh Ghép – Phong Cảnh</h2>
+  <div id="controls">
+    <label>Chọn mức độ: </label>
+    <select id="difficulty">
+      <option value="3">Dễ (3x3)</option>
+      <option value="4" selected>Trung bình (4x4)</option>
+      <option value="6">Khó (6x6)</option>
+      <option value="8">Rất khó (8x8)</option>
+    </select>
+    <button onclick="startGame()">Bắt đầu</button>
+    <button id="musicControl" onclick="toggleMusic()">🔊 Bật/Tắt nhạc</button>
+  </div>
+
+  <div id="preview"></div>
+  <div id="puzzle" class="puzzle-container"></div>
+  <div id="bag" style="margin-top:20px;display:flex;flex-wrap:wrap;gap:4px;justify-content:center"></div>
+
+  <!-- Nhạc nền -->
+  <audio id="bgMusic" loop>
+    <source src="https://cdn.pixabay.com/download/audio/2022/10/25/audio_b2cf2cf4e4.mp3?filename=relaxing-piano-melody-124477.mp3" type="audio/mpeg">
+  </audio>
+
+<script>
+// Ảnh phong cảnh cho mỗi mức độ
+const images = {
+  3: "https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=800&q=80", // Núi
+  4: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80", // Biển
+  6: "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=800&q=80", // Đồng cỏ
+  8: "https://images.unsplash.com/photo-1500534623283-312aade485b7?auto=format&fit=crop&w=800&q=80"  // Hồ
+};
+
+let dragged=null;
+let size=4;
+let previewTimer;
+
+function startGame(){
+  size=parseInt(document.getElementById('difficulty').value);
+  const imgUrl = images[size];
+  const preview=document.getElementById('preview');
+  const puzzle=document.getElementById('puzzle');
+  const bag=document.getElementById('bag');
+  clearTimeout(previewTimer);
+  preview.innerHTML='';
+  puzzle.innerHTML=''; bag.innerHTML='';
+
+  // Hiện ảnh nguyên vẹn trong 10 giây
+  const img=document.createElement('img');
+  img.src=imgUrl;
+  img.style.maxWidth="100%";
+  img.style.border="3px solid #0b63d4";
+  img.style.borderRadius="8px";
+  preview.appendChild(img);
+
+  // Sau 10 giây thì ẩn ảnh và bắt đầu trò chơi
+  previewTimer=setTimeout(()=>{
+    preview.innerHTML='';
+    initPuzzle(imgUrl);
+  },10000);
+
+  // Bật nhạc nền
+  document.getElementById('bgMusic').play().catch(()=>{});
+}
+
+function initPuzzle(imgUrl){
+  const puzzle=document.getElementById('puzzle');
+  const bag=document.getElementById('bag');
+  puzzle.innerHTML=''; bag.innerHTML='';
+  puzzle.style.gridTemplateColumns=`repeat(${size},80px)`;
+  puzzle.style.gridTemplateRows=`repeat(${size},80px)`;
+
+  const pieces=[];
+  // Tạo mảnh ghép
+  for(let row=0;row<size;row++){
+    for(let col=0;col<size;col++){
+      const index=row*size+col;
+      const piece=document.createElement('div');
+      piece.className='piece';
+      piece.draggable=true;
+      piece.dataset.correct=index;
+      piece.style.width='80px'; piece.style.height='80px';
+      piece.style.backgroundImage=`url(${imgUrl})`;
+      piece.style.backgroundSize=`${size*80}px ${size*80}px`;
+      piece.style.backgroundPosition=`-${col*80}px -${row*80}px`;
+      pieces.push(piece);
+    }
+  }
+  pieces.sort(()=>Math.random()-0.5);
+
+  // Placeholder
+  for(let i=0;i<pieces.length;i++){
+    const ph=document.createElement('div');
+    ph.className='placeholder';
+    ph.style.width='80px'; ph.style.height='80px';
+    ph.dataset.index=i;
+    ph.addEventListener('dragover',e=>e.preventDefault());
+    ph.addEventListener('drop',()=>{
+      if(!dragged) return;
+      if(ph.firstChild){
+        // trả mảnh cũ về túi
+        bag.appendChild(ph.firstChild);
+      }
+      ph.appendChild(dragged);
+      checkWin();
+    });
+    puzzle.appendChild(ph);
+  }
+
+  // Mảnh vào túi
+  pieces.forEach(p=>{
+    p.addEventListener('dragstart',()=>dragged=p);
+    p.addEventListener('dragend',()=>dragged=null);
+    bag.appendChild(p);
+  });
+}
+
+function checkWin(){
+  const placeholders=[...document.querySelectorAll('.placeholder')];
+  const done=placeholders.every((ph,i)=>ph.firstChild && ph.firstChild.dataset.correct==i);
+  if(done){
+    setTimeout(()=>alert("🎉 Chúc mừng! Bạn đã hoàn thành bức tranh."),200);
+  }
+}
+
+// Bật/tắt nhạc
+function toggleMusic(){
+  const bgMusic=document.getElementById('bgMusic');
+  if(bgMusic.paused){
+    bgMusic.play();
+  }else{
+    bgMusic.pause();
+  }
+}
+
+// Tự khởi tạo ban đầu
+startGame();
+</script>
+</body>
+</html>
